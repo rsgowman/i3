@@ -115,7 +115,7 @@ static void _con_attach(Con *con, Con *parent, Con *previous, bool ignore_focus)
                 /* we need to insert the container at the beginning */
                 TAILQ_INSERT_HEAD(nodes_head, con, nodes);
             } else {
-                while (current->num != -1 && con->num > current->num) {
+                while (current->num != -1 && con->num >= current->num) {
                     current = TAILQ_NEXT(current, nodes);
                     if (current == TAILQ_END(nodes_head)) {
                         current = NULL;

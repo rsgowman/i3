@@ -54,15 +54,11 @@ cmd 'workspace 5';
 # ensure workspace 5 stays open
 open_window;
 
-# numbered w/ name workspaces must be created in reverse order compared to
-# other workspace types (because a new numbered w/ name workspace is prepended
-# to the list of similarly numbered workspaces).
-
-cmd 'workspace 6:b';
+cmd 'workspace 6:a';
 # ensure workspace 5 stays open
 open_window;
 
-cmd 'workspace 6:a';
+cmd 'workspace 6:b';
 # ensure workspace 5 stays open
 open_window;
 
