@@ -42,12 +42,77 @@ Con *get_existing_workspace_by_name(const char *name) {
  *
  */
 Con *get_existing_workspace_by_num(int num) {
-    Con *output, *workspace = NULL;
+    Con *current = con_get_workspace(focused);
+    Con *output, *first = NULL, *last_select = NULL, *after_current = NULL;
+    bool prev_was_current = false;
     TAILQ_FOREACH (output, &(croot->nodes_head), nodes) {
-        GREP_FIRST(workspace, output_get_content(output), child->num == num);
+        /*
+         * iterate through workspaces and get first (as fallback) - otherwise return
+         * the workspace right after the current workspace (of the same num).
+         */
+        NODES_FOREACH (output_get_content(output)) {
+            if (child->num != num) {
+                continue;
+            }
+            // select first (will be fallback)
+            if (!first) {
+                first = child;
+            }
+
+            if (child->num_last_selected) {
+                last_select = child;
+            }
+
+            // if current equals the child, go to next
+            if (current == child) {
+                prev_was_current = true;
+                continue;
+            }
+            // return the next after prev
+            if (prev_was_current) {
+                after_current = child;
+                prev_was_current = false;
+            }
+        }
     }
 
-    return workspace;
+    clear_num_last_selected_by_num(num);
+
+    // selection logic
+    // if last selected is current -> then check for after_current
+    if (last_select && last_select != current) {
+        last_select->num_last_selected = true;
+        return last_select;
+    }
+
+    // if after_current exists, return that
+    if (after_current) {
+        after_current->num_last_selected = true;
+        return after_current;
+    }
+
+    // fallback is return first
+    if (first) {
+        first->num_last_selected = true;
+    }
+    return first;
+}
+
+/**
+ * Clears the num_last_selected property of all workspaces by workspace number.
+ * (there can be multiple: 1a, 1b, etc.).
+ */
+void clear_num_last_selected_by_num(int num) {
+    Con *output;
+    TAILQ_FOREACH (output, &(croot->nodes_head), nodes) {
+        // reset num_last_selected
+        NODES_FOREACH (output_get_content(output)) {
+            if (child->num != num) {
+                continue;
+            }
+            child->num_last_selected = false;
+        }
+    }
 }
 
 /*
@@ -438,6 +503,8 @@ void workspace_show(Con *workspace) {
     current = con_get_workspace(focused);
     if (workspace == current) {
         DLOG("Not switching, already there.\n");
+        clear_num_last_selected_by_num(workspace->num);
+        workspace->num_last_selected = true;
         return;
     }
 
@@ -543,6 +610,10 @@ void workspace_show(Con *workspace) {
 
     /* Push any sticky windows to the now visible workspace. */
     output_push_sticky_windows(old_focus);
+
+    /* update num_last_selected for this workspaces with same num (but diff name) */
+    clear_num_last_selected_by_num(workspace->num);
+    workspace->num_last_selected = true;
 }
 
 /*
@@ -619,8 +690,9 @@ Con *workspace_next(void) {
         }
     }
 
-    if (!next)
+    if (!next) {
         next = first_opposite ? first_opposite : first;
+    }
 
     return next;
 }
@@ -694,8 +766,9 @@ Con *workspace_prev(void) {
         }
     }
 
-    if (!prev)
+    if (!prev) {
         prev = first_opposite ? first_opposite : last;
+    }
 
     return prev;
 }
